@@ -1,0 +1,45 @@
+# .github/workflows/build-from-azdo.yml
+
+name: Build from Azure DevOps Repo
+
+on:
+  workflow_dispatch: # Allows you to run this workflow manually from the Actions tab
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Clone Azure DevOps Repo
+      run: |
+        # Use the AZDO_PAT secret to clone the repo
+        git clone https://<YOUR_AZDO_ORG>:${{ secrets.AZDO_PAT }}@dev.azure.com/<YOUR_AZDO_ORG>/<YOUR_PROJECT>/_git/<YOUR_REPO_NAME>
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Build the project
+      working-directory: ./<YOUR_REPO_NAME> # The directory created by the git clone
+      run: |
+        npm install
+        npm run build
+
+    - name: Publish to Azure Artifacts
+      uses: vss-services-actions/vss-services-actions@v1.9.0
+      with:
+        # Authenticate to Azure DevOps
+        pat: ${{ secrets.AZDO_PAT }}
+        # Specify the command to run
+        command: 'artifacts universal publish'
+        # Define the arguments for the command
+        commandArguments: >
+          --organization 'https://dev.azure.com/<YOUR_AZDO_ORG>'
+          --project '<YOUR_PROJECT>'
+          --scope project
+          --feed '<YOUR_ARTIFACTS_FEED_NAME>'
+          --name '<YOUR_PACKAGE_NAME>'
+          --version '1.0.${{ github.run_number }}'
+          --path './<YOUR_REPO_NAME>/dist' # Path to your build output
+          --description 'Build output from GitHub Actions'
