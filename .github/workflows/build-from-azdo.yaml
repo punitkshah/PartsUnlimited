@@ -5,41 +5,48 @@ name: Build from Azure DevOps Repo
 on:
   workflow_dispatch: # Allows you to run this workflow manually from the Actions tab
 
-jobs:
-  build-and-publish:
-    runs-on: ubuntu-latest
+env:
+  # Variables from your Azure DevOps pipeline
+  SOLUTION: '**/*.sln'
+  BUILD_PLATFORM: 'Any CPU'
+  BUILD_CONFIGURATION: 'Release'
+  AZDO_ORG: 'punitsinc'
+  AZDO_PROJECT: 'PartsUnlimited'
+  AZDO_REPO: 'PartsUnlimited'
 
+jobs:
+  build:
+    runs-on: windows-latest
     steps:
     - name: Clone Azure DevOps Repo
       run: |
-        # Use the AZDO_PAT secret to clone the repo
-        git clone https://<YOUR_AZDO_ORG>:${{ secrets.AZDO_PAT }}@dev.azure.com/<YOUR_AZDO_ORG>/<YOUR_PROJECT>/_git/<YOUR_REPO_NAME>
+        git clone https://${{ env.AZDO_ORG }}:${{ secrets.AZDO_PAT }}@dev.azure.com/${{ env.AZDO_ORG }}/${{ env.AZDO_PROJECT }}/_git/${{ env.AZDO_REPO }}
+      shell: pwsh
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
+    - name: Set up MSBuild
+      uses: microsoft/setup-msbuild@v1.1
+
+    - name: Set up NuGet
+      uses: NuGet/setup-nuget@v1
       with:
-        node-version: '18'
+        nuget-version: '5.x'
 
-    - name: Build the project
-      working-directory: ./<YOUR_REPO_NAME> # The directory created by the git clone
+    - name: Restore NuGet packages
+      working-directory: ./${{ env.AZDO_REPO }}
+      run: nuget restore ${{ env.SOLUTION }}
+
+    - name: Build solution
+      working-directory: ./${{ env.AZDO_REPO }}
       run: |
-        npm install
-        npm run build
+        msbuild.exe ${{ env.SOLUTION }} /p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="${{ github.workspace }}/artifact" /p:Platform="${{ env.BUILD_PLATFORM }}" /p:Configuration="${{ env.BUILD_CONFIGURATION }}"
 
-    - name: Publish to Azure Artifacts
-      uses: vss-services-actions/vss-services-actions@v1.9.0
+    - name: Copy JSON files to artifact directory
+      working-directory: ./${{ env.AZDO_REPO }}
+      run: Copy-Item -Path '**/*.json' -Destination '${{ github.workspace }}/artifact' -Recurse -Force
+      shell: pwsh
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v3
       with:
-        # Authenticate to Azure DevOps
-        pat: ${{ secrets.AZDO_PAT }}
-        # Specify the command to run
-        command: 'artifacts universal publish'
-        # Define the arguments for the command
-        commandArguments: >
-          --organization 'https://dev.azure.com/<YOUR_AZDO_ORG>'
-          --project '<YOUR_PROJECT>'
-          --scope project
-          --feed '<YOUR_ARTIFACTS_FEED_NAME>'
-          --name '<YOUR_PACKAGE_NAME>'
-          --version '1.0.${{ github.run_number }}'
-          --path './<YOUR_REPO_NAME>/dist' # Path to your build output
-          --description 'Build output from GitHub Actions'
+        name: drop
+        path: ${{ github.workspace }}/artifact
