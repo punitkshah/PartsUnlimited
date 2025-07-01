@@ -39,18 +39,23 @@ jobs:
       with:
         nuget-version: '5.x'
 
-    # Step 4: Restores packages.
+    - name: Find Solution File
+      id: find_solution
+      working-directory: ./${{ env.AZDO_REPO }}
+      run: |
+        $solutionPath = (Get-ChildItem -Path . -Filter *.sln -Recurse | Select-Object -First 1).FullName
+        echo "SOLUTION_PATH=$solutionPath" >> $env:GITHUB_ENV
+      shell: pwsh
+
     - name: Restore NuGet packages
       working-directory: ./${{ env.AZDO_REPO }}
-      run: nuget restore ${{ env.SOLUTION }}
+      run: nuget restore "${{ env.SOLUTION_PATH }}"
 
-    # Step 5: Builds the solution.
     - name: Build solution
       working-directory: ./${{ env.AZDO_REPO }}
       run: |
-        msbuild.exe ${{ env.SOLUTION }} /p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="${{ github.workspace }}/artifact" /p:Platform="${{ env.BUILD_PLATFORM }}" /p:Configuration="${{ env.BUILD_CONFIGURATION }}"
+        msbuild.exe "${{ env.SOLUTION_PATH }}" /p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="${{ github.workspace }}/artifact" /p:Platform="${{ env.BUILD_PLATFORM }}" /p:Configuration="${{ env.BUILD_CONFIGURATION }}"
 
-    # Step 6: Copies extra files.
     - name: Copy JSON files to artifact directory
       working-directory: ./${{ env.AZDO_REPO }}
       run: Copy-Item -Path '**/*.json' -Destination '${{ github.workspace }}/artifact' -Recurse -Force
