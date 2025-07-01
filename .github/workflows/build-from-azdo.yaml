@@ -21,7 +21,7 @@ env:
 jobs:
   # This is a single job. All steps inside it run sequentially.
   build-and-publish:
-    runs-on: windows-2019
+    runs-on: windows-latest
     steps:
     # Step 1: Clones the repo. The next step won't start until this is done.
     - name: Clone Azure DevOps Repo
@@ -38,6 +38,12 @@ jobs:
       uses: NuGet/setup-nuget@v1
       with:
         nuget-version: '5.x'
+
+    - name: Install .NET Framework 4.6.1 Developer Pack
+      run: |
+        Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/?LinkId=526127" -OutFile "devpack.exe"
+        Start-Process -FilePath "devpack.exe" -ArgumentList "/q", "/norestart" -Wait
+      shell: pwsh
 
     - name: Find Solution File
       id: find_solution
