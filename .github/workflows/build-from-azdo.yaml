@@ -58,7 +58,7 @@ jobs:
 
     # Step 7: Publishes the final artifact to Azure DevOps. This only runs after all previous steps succeed.
     - name: Publish Artifacts to Azure DevOps
-      uses: vss-services-actions/vss-services-actions@v1.9.0
+      uses: vss-services-actions/vss-services-actions@v2
       with:
         pat: ${{ secrets.AZDO_PAT }}
         command: 'artifacts universal publish'
