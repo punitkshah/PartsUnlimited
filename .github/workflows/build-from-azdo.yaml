@@ -19,7 +19,7 @@ env:
 
   # Variables for Azure Artifacts
   AZURE_FEED_NAME: 'PartsUnlimitedFeed' # <-- The name of your feed in Azure Artifacts
-  PACKAGE_NAME: 'PartsUnlimited-Build' # <-- A name for your package, e.g., 'website-build'
+  PACKAGE_NAME: 'partsunlimited-build' # <-- A name for your package, e.g., 'website-build'
   
 jobs:
   # This is a single job. All steps inside it run sequentially.
