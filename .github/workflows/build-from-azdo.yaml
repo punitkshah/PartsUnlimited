@@ -56,18 +56,22 @@ jobs:
       run: Copy-Item -Path '**/*.json' -Destination '${{ github.workspace }}/artifact' -Recurse -Force
       shell: pwsh
 
-    # Step 7: Publishes the final artifact to Azure DevOps. This only runs after all previous steps succeed.
-    - name: Publish Artifacts to Azure DevOps
-      uses: vss-services-actions/vss-services-actions@v2
-      with:
-        pat: ${{ secrets.AZDO_PAT }}
-        command: 'artifacts universal publish'
-        commandArguments: >
-          --organization 'https://dev.azure.com/${{ env.AZDO_ORG }}'
-          --project '${{ env.AZDO_PROJECT }}'
-          --scope project
-          --feed '${{ env.AZURE_FEED_NAME }}'
-          --name '${{ env.PACKAGE_NAME }}'
-          --version '1.0.${{ github.run_number }}'
-          --path '${{ github.workspace }}/artifact'
-          --description 'Build artifact from GitHub Actions run ${{ github.run_id }}'
+    - name: Install Azure DevOps extension for Azure CLI
+      run: az extension add --name azure-devops
+      shell: pwsh
+
+    - name: Publish Artifacts to Azure DevOps via Azure CLI
+      run: |
+        az artifacts universal publish `
+          --organization "https://dev.azure.com/${{ env.AZDO_ORG }}" `
+          --project "${{ env.AZDO_PROJECT }}" `
+          --scope project `
+          --feed "${{ env.AZURE_FEED_NAME }}" `
+          --name "${{ env.PACKAGE_NAME }}" `
+          --version "1.0.${{ github.run_number }}" `
+          --path "${{ github.workspace }}/artifact" `
+          --description "Build artifact from GitHub Actions run ${{ github.run_id }}"
+      shell: pwsh
+      env:
+        # The Azure DevOps PAT is used by the Azure CLI for authentication
+        AZURE_DEVOPS_EXT_PAT: ${{ secrets.AZDO_PAT }}
