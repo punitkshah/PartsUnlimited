@@ -14,39 +14,60 @@ env:
   AZDO_PROJECT: 'PartsUnlimited'
   AZDO_REPO: 'PartsUnlimited'
 
+  # Variables for Azure Artifacts
+  AZURE_FEED_NAME: 'PartsUnlimitedFeed' # <-- The name of your feed in Azure Artifacts
+  PACKAGE_NAME: 'PartsUnlimited-Build' # <-- A name for your package, e.g., 'website-build'
+  
 jobs:
-  build:
+  # This is a single job. All steps inside it run sequentially.
+  build-and-publish:
     runs-on: windows-latest
     steps:
+    # Step 1: Clones the repo. The next step won't start until this is done.
     - name: Clone Azure DevOps Repo
       run: |
         git clone https://${{ env.AZDO_ORG }}:${{ secrets.AZDO_PAT }}@dev.azure.com/${{ env.AZDO_ORG }}/${{ env.AZDO_PROJECT }}/_git/${{ env.AZDO_REPO }}
       shell: pwsh
 
+    # Step 2: Sets up MSBuild.
     - name: Set up MSBuild
       uses: microsoft/setup-msbuild@v1.1
 
+    # Step 3: Sets up NuGet.
     - name: Set up NuGet
       uses: NuGet/setup-nuget@v1
       with:
         nuget-version: '5.x'
 
+    # Step 4: Restores packages.
     - name: Restore NuGet packages
       working-directory: ./${{ env.AZDO_REPO }}
       run: nuget restore ${{ env.SOLUTION }}
 
+    # Step 5: Builds the solution.
     - name: Build solution
       working-directory: ./${{ env.AZDO_REPO }}
       run: |
         msbuild.exe ${{ env.SOLUTION }} /p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="${{ github.workspace }}/artifact" /p:Platform="${{ env.BUILD_PLATFORM }}" /p:Configuration="${{ env.BUILD_CONFIGURATION }}"
 
+    # Step 6: Copies extra files.
     - name: Copy JSON files to artifact directory
       working-directory: ./${{ env.AZDO_REPO }}
       run: Copy-Item -Path '**/*.json' -Destination '${{ github.workspace }}/artifact' -Recurse -Force
       shell: pwsh
 
-    - name: Upload build artifact
-      uses: actions/upload-artifact@v4
+    # Step 7: Publishes the final artifact to Azure DevOps. This only runs after all previous steps succeed.
+    - name: Publish Artifacts to Azure DevOps
+      uses: vss-services-actions/vss-services-actions@v1.9.0
       with:
-        name: drop
-        path: ${{ github.workspace }}/artifact
+        pat: ${{ secrets.AZDO_PAT }}
+        command: 'artifacts universal publish'
+        commandArguments: >
+          --organization 'https://dev.azure.com/${{ env.AZDO_ORG }}'
+          --project '${{ env.AZDO_PROJECT }}'
+          --scope project
+          --feed '${{ env.AZURE_FEED_NAME }}'
+          --name '${{ env.PACKAGE_NAME }}'
+          --version '1.0.${{ github.run_number }}'
+          --path '${{ github.workspace }}/artifact'
+          --description 'Build artifact from GitHub Actions run ${{ github.run_id }}'
