@@ -23,7 +23,23 @@ jobs:
   build-and-publish:
     runs-on: windows-latest
     steps:
-    # Step 1: Clones the repo. The next step won't start until this is done.
+    - name: Install .NET Framework 4.6.1 Developer Pack
+      run: |
+        # Print available .NET Framework packages for reference
+        choco list netfx --local-only
+        
+        # Install .NET Framework 4.6.1 Developer Pack
+        choco install netfx-4.6.1-devpack --yes --no-progress
+        
+        # Verify installation succeeded
+        if ($LASTEXITCODE -ne 0) {
+          Write-Error "Chocolatey installation failed with exit code $LASTEXITCODE"
+          exit 1
+        } else {
+          Write-Output ".NET Framework 4.6.1 Developer Pack installation completed successfully"
+        }
+      shell: pwsh
+      # Step 1: Clones the repo. The next step won't start until this is done.
     - name: Clone Azure DevOps Repo
       run: |
         git clone https://${{ env.AZDO_ORG }}:${{ secrets.AZDO_PAT }}@dev.azure.com/${{ env.AZDO_ORG }}/${{ env.AZDO_PROJECT }}/_git/${{ env.AZDO_REPO }}
